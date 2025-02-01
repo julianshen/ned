@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/gomarkdown/markdown"
 	"github.com/spf13/cobra"
@@ -41,7 +42,28 @@ func runView(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not read note: %w", err)
 	}
 
-	htmlContent := markdown.ToHTML(content, nil, nil)
+	mdContent := string(content)
+
+	// Replace Mermaid code blocks with div elements
+	mdContent = strings.ReplaceAll(mdContent, "```mermaid", "<div class=\"mermaid\">")
+	mdContent = strings.ReplaceAll(mdContent, "```", "</div>")
+
+	htmlContent := markdown.ToHTML([]byte(mdContent), nil, nil)
+
+	// Add HTML wrapper with Mermaid support
+	finalHTML := []byte(`<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+</head>
+<body>
+` + string(htmlContent) + `
+</body>
+</html>`)
 
 	tmpDir := os.TempDir()                               // Get temp dir
 	tmpFile, err := os.CreateTemp(tmpDir, "note-*.html") // Create temp file in temp dir
@@ -49,7 +71,7 @@ func runView(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not create temp file: %w", err)
 	}
 
-	if _, err := tmpFile.Write(htmlContent); err != nil {
+	if _, err := tmpFile.Write(finalHTML); err != nil {
 		return fmt.Errorf("could not write HTML to temp file: %w", err)
 	}
 
