@@ -13,6 +13,12 @@ func TestEmptyListCmd(t *testing.T) {
 	tmpDir, cleanup := setupTestEnv(t)
 	defer cleanup()
 
+	// Create a non-.md file
+	err := os.WriteFile(filepath.Join(tmpDir, "readme.txt"), []byte("should not show"), 0644)
+	if err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, err := os.Pipe()

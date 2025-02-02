@@ -106,15 +106,17 @@ func runNew(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Created new note: %s\n", filename)
 
-	// Prompt user to edit the new note
-	var editNote string
-	fmt.Print("Do you want to edit the new note? (y/n): ")
-	fmt.Scanln(&editNote)
+	if !testMode {
+		// Prompt user to edit the new note
+		var editNote string
+		fmt.Print("Do you want to edit the new note? (y/n): ")
+		fmt.Scanln(&editNote)
 
-	if strings.ToLower(editNote) == "y" {
-		err := runEdit(editCmd, []string{filename})
-		if err != nil {
-			return fmt.Errorf("failed to edit note: %w", err)
+		if strings.ToLower(editNote) == "y" {
+			err := runEdit(editCmd, []string{filename})
+			if err != nil {
+				return fmt.Errorf("failed to edit note: %w", err)
+			}
 		}
 	}
 

@@ -96,6 +96,8 @@ func runView(cobraCmd *cobra.Command, args []string) error {
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to open browser: %w", err)
 		}
+		fmt.Print("Press Enter to continue...")
+		fmt.Scanln() // Wait for user to press Enter
 	} else {
 		testFile = tmpFile.Name()
 	}

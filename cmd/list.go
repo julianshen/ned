@@ -23,12 +23,21 @@ func init() {
 }
 
 func runList(cmd *cobra.Command, args []string) error {
-	// Check if directory is empty
+	// Check if directory has any .md files
 	entries, err := os.ReadDir(notesDir)
 	if err != nil {
 		return err
 	}
-	if len(entries) == 0 {
+
+	hasMdFiles := false
+	for _, entry := range entries {
+		if !entry.IsDir() && filepath.Ext(entry.Name()) == ".md" {
+			hasMdFiles = true
+			break
+		}
+	}
+
+	if !hasMdFiles {
 		fmt.Println("Empty")
 		return nil
 	}
@@ -59,12 +68,21 @@ func runList(cmd *cobra.Command, args []string) error {
 		depth := len(strings.Split(relPath, string(os.PathSeparator))) - 1
 		indent := strings.Repeat("  ", depth)
 
-		// Determine if the current entry is the last one in its directory
+		// Determine if the current entry is the last visible one in its directory
 		isLast := false
 		parentDir := filepath.Dir(path)
 		entries, err := os.ReadDir(parentDir)
 		if err == nil {
-			if len(entries) > 0 && entries[len(entries)-1].Name() == filepath.Base(path) {
+			// Find the last visible entry (directory or .md file)
+			var lastVisibleEntry string
+			for i := len(entries) - 1; i >= 0; i-- {
+				entry := entries[i]
+				if entry.IsDir() || filepath.Ext(entry.Name()) == ".md" {
+					lastVisibleEntry = entry.Name()
+					break
+				}
+			}
+			if lastVisibleEntry == filepath.Base(path) {
 				isLast = true
 			}
 		}

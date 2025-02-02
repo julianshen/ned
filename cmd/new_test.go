@@ -8,6 +8,7 @@ import (
 )
 
 func TestNewCmd(t *testing.T) {
+	testMode = true
 	tmpDir, cleanup := setupTestEnv(t)
 	defer cleanup()
 
