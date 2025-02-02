@@ -81,7 +81,6 @@ func runView(cobraCmd *cobra.Command, args []string) error {
 
 	// Transform image paths
 	mdContent = transformImagePaths(mdContent, noteDir)
-	fmt.Printf(mdContent)
 
 	// Replace Mermaid code blocks with div elements
 	mdContent = strings.ReplaceAll(mdContent, "```mermaid", "<div class=\"mermaid\">")
