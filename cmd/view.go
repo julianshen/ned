@@ -11,9 +11,11 @@ import (
 	"sort"
 	"strings"
 
+	"bytes"
+
 	"github.com/gin-gonic/gin"
-	"github.com/gomarkdown/markdown"
 	"github.com/spf13/cobra"
+	"github.com/yuin/goldmark"
 )
 
 var viewCmd = &cobra.Command{
@@ -211,9 +213,13 @@ func setupServer(noteName string) (*gin.Engine, error) {
 		}
 		mdContent = strings.Join(lines, "\n")
 
-		// Convert to HTML
-		htmlContent := markdown.ToHTML([]byte(mdContent), nil, nil)
-		finalHTML := fmt.Sprintf(htmlTemplate, string(htmlContent))
+		// Convert to HTML using goldmark
+		var buf bytes.Buffer
+		if err := goldmark.Convert([]byte(mdContent), &buf); err != nil {
+			c.String(http.StatusInternalServerError, "Failed to convert markdown")
+			return
+		}
+		finalHTML := fmt.Sprintf(htmlTemplate, buf.String())
 
 		c.Header("Content-Type", "text/html")
 		c.String(http.StatusOK, finalHTML)
