@@ -45,19 +45,26 @@ func runNew(cmd *cobra.Command, args []string) error {
 		filename += ".md"
 	}
 
-	// Clean the filename to prevent directory traversal
+	// Clean and validate the path
 	cleanPath := filepath.Clean(filename)
 	if filepath.IsAbs(cleanPath) {
 		return fmt.Errorf("absolute paths are not allowed")
 	}
 
 	// Create full path and verify it's within notes directory
+	absNotesDir, err := filepath.Abs(notesDir)
+	if err != nil {
+		return fmt.Errorf("failed to resolve notes directory path: %w", err)
+	}
+
 	fullPath := filepath.Join(notesDir, cleanPath)
 	absPath, err := filepath.Abs(fullPath)
 	if err != nil {
 		return fmt.Errorf("invalid path: %w", err)
 	}
-	if !strings.HasPrefix(absPath, notesDir) {
+
+	// Ensure the target path is within the notes directory
+	if !strings.HasPrefix(absPath, absNotesDir) {
 		return fmt.Errorf("path must be within notes directory")
 	}
 

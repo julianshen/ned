@@ -45,8 +45,8 @@ func TestNewCmd(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:    "create note with invalid path",
-			args:    []string{"../outside.md"},
+			name:    "create note in folder with double dot",
+			args:    []string{"../test.md"},
 			title:   "Invalid",
 			content: "Should fail\n",
 			wantErr: true,
