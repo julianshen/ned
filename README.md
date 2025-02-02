@@ -21,6 +21,9 @@ ned <command> [options]
 - `list` or `l`: List all notes.
 - `delete` or `d`: Delete a note.
 - `view` or `v`: View a note in the browser.
+- `image`: Manage images in notes
+  - `image list [folder]`: List images in a folder's ._images_ directory. If no folder is specified, lists images in the root ._images_ directory.
+  - `image show [image]`: Show an image using the system's default viewer. The image path can be either a filename for root images (e.g., `image.jpg`) or include a folder path (e.g., `folder/image.jpg`).
 - `help` or `h`: Show help for a command.
 - `config`: Manage configuration
   - `config set [key] [value]`: Set a configuration value
