@@ -96,12 +96,13 @@ func runView(cobraCmd *cobra.Command, args []string) error {
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to open browser: %w", err)
 		}
+		fmt.Printf("Viewing note: %s in browser\n", noteName)
 		fmt.Print("Press Enter to continue...")
 		fmt.Scanln() // Wait for user to press Enter
+		defer os.Remove(tmpFile.Name())
 	} else {
 		testFile = tmpFile.Name()
 	}
 
-	fmt.Printf("Viewing note: %s in browser\n", noteName)
 	return nil
 }
