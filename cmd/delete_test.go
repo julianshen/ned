@@ -159,12 +159,22 @@ func TestDeleteCmd(t *testing.T) {
 			if tt.input != "" {
 				stdin.WriteString(tt.input)
 				oldStdin := os.Stdin
-				r, w, _ := os.Pipe()
+				r, w, err := os.Pipe()
+				if err != nil {
+					t.Fatalf("failed to create pipe: %v", err)
+				}
 				os.Stdin = r
+
+				errCh := make(chan error, 1)
 				go func() {
-					io.WriteString(w, tt.input)
+					_, err := io.WriteString(w, tt.input)
+					errCh <- err
 					w.Close()
 				}()
+
+				if err := <-errCh; err != nil {
+					t.Fatalf("failed to write to pipe: %v", err)
+				}
 				defer func() { os.Stdin = oldStdin }()
 			}
 

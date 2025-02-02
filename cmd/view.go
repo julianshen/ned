@@ -29,7 +29,7 @@ func init() {
 var testMode bool
 var testFile string
 
-func runView(cmd *cobra.Command, args []string) error {
+func runView(cobraCmd *cobra.Command, args []string) error {
 	noteName := args[0]
 	notePath := filepath.Join(notesDir, noteName+".md")
 
@@ -79,28 +79,21 @@ func runView(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not close temp file: %w", err)
 	}
 
-	var browserCmd string
-	switch runtime.GOOS {
-	case "linux":
-		browserCmd = "xdg-open"
-	case "windows":
-		browserCmd = "cmd /c start"
-	case "darwin":
-		browserCmd = "open"
-	default:
-		return fmt.Errorf("unsupported platform")
-	}
-
-	browserPath, err := exec.LookPath(browserCmd)
-	if err != nil {
-		return fmt.Errorf("browser command not found: %w", err)
-	}
-
 	if !testMode {
-		cmdBrowser := exec.Command(browserPath, tmpFile.Name())
-		cmdBrowser.Stdout = os.Stdout
-		cmdBrowser.Stderr = os.Stderr
-		if err := cmdBrowser.Run(); err != nil {
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "linux":
+			cmd = exec.Command("xdg-open", tmpFile.Name())
+		case "windows":
+			cmd = exec.Command("cmd", "/c", "start", tmpFile.Name())
+		case "darwin":
+			cmd = exec.Command("open", tmpFile.Name())
+		default:
+			return fmt.Errorf("unsupported platform")
+		}
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("failed to open browser: %w", err)
 		}
 	} else {

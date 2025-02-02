@@ -33,7 +33,9 @@ func TestEmptyListCmd(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to read captured output: %v", err)
+	}
 	os.Stdout = oldStdout
 
 	// Check output
@@ -90,7 +92,9 @@ func TestListCmd(t *testing.T) {
 
 	// Read captured output
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to read captured output: %v", err)
+	}
 	os.Stdout = oldStdout
 
 	// Check output

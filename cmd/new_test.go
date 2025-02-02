@@ -45,7 +45,7 @@ func TestNewCmd(t *testing.T) {
 		},
 		{
 			name:    "create note with invalid path",
-			args:    []string{"/invalid/path"},
+			args:    []string{"../outside.md"},
 			title:   "Invalid",
 			content: "Should fail\n",
 			wantErr: true,
@@ -70,10 +70,17 @@ func TestNewCmd(t *testing.T) {
 					t.Fatalf("failed to create pipe: %v", err)
 				}
 				os.Stdin = r
+
+				errCh := make(chan error, 1)
 				go func() {
-					io.WriteString(w, tt.content)
+					_, err := io.WriteString(w, tt.content)
+					errCh <- err
 					w.Close()
 				}()
+
+				if err := <-errCh; err != nil {
+					t.Fatalf("failed to write to pipe: %v", err)
+				}
 			}
 			defer func() { os.Stdin = oldStdin }()
 

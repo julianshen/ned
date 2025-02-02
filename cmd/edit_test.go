@@ -106,10 +106,16 @@ func TestEditCmd(t *testing.T) {
 				defer func() { os.Stdin = oldStdin }()
 
 				// Write content to pipe
+				errCh := make(chan error, 1)
 				go func() {
-					io.WriteString(w, tt.content)
+					_, err := io.WriteString(w, tt.content)
+					errCh <- err
 					w.Close()
 				}()
+
+				if err := <-errCh; err != nil {
+					t.Fatalf("failed to write to pipe: %v", err)
+				}
 			}
 
 			err := runEdit(editCmd, []string{filename})
