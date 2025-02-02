@@ -28,6 +28,10 @@ ned <command> [options]
 - `config`: Manage configuration
   - `config set [key] [value]`: Set a configuration value
   - `config show`: Show all configuration values
+- `clip`: Clip webpage content to a note
+  - Usage: `clip [note] [url]`
+  - If ANTHROPIC_API_KEY is set in config, downloads and summarizes the webpage content
+  - If no API key is set, saves just the URL to the note
 
 All notes are stored in `$HOME/.mynotes` directory.
 
