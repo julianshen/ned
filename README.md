@@ -27,10 +27,14 @@ All notes are stored in `$HOME/.mynotes` directory.
 
 ## Features
 
-- Markdown notes with `.md` extension
+- Markdown notes with `.md` extension (using [goldmark](https://github.com/yuin/goldmark) parser)
 - Tree-style note listing
 - Browser-based note viewing
 - Mermaid diagram support in markdown files
+- Image support in notes
+  - Images are stored in `._images_` directories alongside notes
+  - Support both relative paths (e.g., `![](image.png)`) and folder paths (e.g., `![](folder/image.png)`)
+  - Images in notes inherit their note's folder structure (e.g., for a note in `folder1/note.md`, an image `![](image.png)` is stored in `folder1/._images_/image.png`)
 
 Example of a Mermaid diagram:
 ```mermaid
