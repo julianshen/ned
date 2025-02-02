@@ -22,8 +22,17 @@ ned <command> [options]
 - `delete` or `d`: Delete a note.
 - `view` or `v`: View a note in the browser.
 - `help` or `h`: Show help for a command.
+- `config`: Manage configuration
+  - `config set [key] [value]`: Set a configuration value
+  - `config show`: Show all configuration values
 
 All notes are stored in `$HOME/.mynotes` directory.
+
+## Configuration
+
+Configuration is stored in `$HOME/.config/ned/config.toml` in TOML format. Available configuration options:
+
+- `ANTHROPIC_API_KEY`: API key for Claude.ai integration
 
 ## Features
 
