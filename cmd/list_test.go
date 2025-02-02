@@ -61,6 +61,9 @@ func TestListCmd(t *testing.T) {
 		{"dir1/note3.md", "test content 3"},
 		{"dir1/subdir/note4.md", "test content 4"},
 		{"dir2/note5.md", "test content 5"},
+		{"dir1/ignore.txt", "should not show"},
+		{"dir2/skip.json", "should not show"},
+		{"readme.txt", "should not show"},
 	}
 
 	for _, f := range files {

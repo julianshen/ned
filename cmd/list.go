@@ -39,8 +39,13 @@ func runList(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		// Skip the root directory itself
+		// Skip the root directory itself and non-.md files
 		if path == notesDir {
+			return nil
+		}
+
+		// Only process directories and .md files
+		if !info.IsDir() && filepath.Ext(path) != ".md" {
 			return nil
 		}
 
