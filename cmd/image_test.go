@@ -9,6 +9,49 @@ import (
 	"testing"
 )
 
+func TestConvertImagePath(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "root level image",
+			input:    "$root/._images_/test.png",
+			expected: "/images/test.png",
+		},
+		{
+			name:     "single folder level",
+			input:    "$root/folder1/._images_/test.png",
+			expected: "/images/folder1/test.png",
+		},
+		{
+			name:     "nested folders",
+			input:    "$root/folder1/folder2/._images_/test.png",
+			expected: "/images/folder1/folder2/test.png",
+		},
+		{
+			name:     "no ._images_ in path",
+			input:    "$root/folder1/test.png",
+			expected: "$root/folder1/test.png",
+		},
+		{
+			name:     "empty path",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ConvertImagePath(tt.input)
+			if result != tt.expected {
+				t.Errorf("ConvertImagePath(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestImageCommands(t *testing.T) {
 	testMode = true
 	tmpDir, cleanup := setupTestEnv(t)

@@ -2,23 +2,27 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gomarkdown/markdown"
 	"github.com/spf13/cobra"
 )
 
 var viewCmd = &cobra.Command{
-	Use:     "view [note name]",
-	Short:   "View a note in the browser",
-	Long:    `Renders a note from markdown to HTML and opens it in the default browser.`,
+	Use:   "view [note name]",
+	Short: "View a note or the welcome page in the browser",
+	Long: `Renders a note from markdown to HTML and opens it in the default browser.
+If no note name is provided, opens the welcome page showing all available notes.`,
 	Aliases: []string{"v"},
-	Args:    cobra.ExactArgs(1),
+	Args:    cobra.MaximumNArgs(1),
 	RunE:    runView,
 }
 
@@ -26,8 +30,37 @@ func init() {
 	rootCmd.AddCommand(viewCmd)
 }
 
-// transformImagePaths modifies markdown image paths to point to the correct ._images_ directory
-func transformImagePaths(content string, noteDir string) string {
+// For testing purposes
+var testMode bool
+
+const htmlTemplate = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+        }
+        img {
+            max-width: 100%%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+%s
+</body>
+</html>`
+
+func transformImagePaths(content string, notePath string) string {
 	// Regular expression to match markdown image syntax: ![alt](path)
 	re := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)\)`)
 
@@ -41,105 +74,241 @@ func transformImagePaths(content string, noteDir string) string {
 		alt := parts[1]
 		imgPath := parts[2]
 
-		// If path contains folders, treat it as from root
+		// Convert image path to standardized URL path
 		if strings.Contains(imgPath, "/") || strings.Contains(imgPath, "\\") {
-			// Split into directory and filename
+			// If path contains folders, keep the structure
 			dir, file := filepath.Split(imgPath)
-			// Insert ._images_ before the filename
-			newPath := filepath.Join(notesDir, dir, "._images_", file)
-			return fmt.Sprintf("![%s](%s)", alt, strings.ReplaceAll(newPath, "\\", "\\\\"))
+			// Remove trailing slash and clean the directory path
+			dir = strings.TrimRight(dir, "/\\")
+			if dir == "" {
+				return fmt.Sprintf("![%s](/images/%s)", alt, file)
+			}
+			return fmt.Sprintf("![%s](/images/%s/%s)", alt, dir, file)
 		}
 
-		// For simple filenames, use note's directory
-		newPath := filepath.Join(noteDir, "._images_", imgPath)
-		return fmt.Sprintf("![%s](%s)", alt, strings.ReplaceAll(newPath, "\\", "\\\\"))
+		// For simple filenames, use the note's parent folder
+		noteDir := filepath.Dir(notePath)
+		// Get relative path from notes directory
+		relNoteDir, err := filepath.Rel(notesDir, noteDir)
+		if err != nil || relNoteDir == "." {
+			return fmt.Sprintf("![%s](/images/%s)", alt, imgPath)
+		}
+		return fmt.Sprintf("![%s](/images/%s/%s)", alt, relNoteDir, imgPath)
 	})
 }
 
-// For testing purposes
-var testMode bool
-var testFile string
+func setupServer(noteName string) (*gin.Engine, error) {
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(gin.Recovery())
 
-func runView(cobraCmd *cobra.Command, args []string) error {
-	noteName := args[0]
-	notePath := filepath.Join(notesDir, noteName+".md")
+	// Serve welcome page at root
+	r.GET("/", func(c *gin.Context) {
+		// Get all markdown files in notes directory
+		var notes []string
+		err := filepath.Walk(notesDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if !info.IsDir() && strings.HasSuffix(strings.ToLower(info.Name()), ".md") {
+				// Get relative path from notes directory
+				relPath, err := filepath.Rel(notesDir, path)
+				if err != nil {
+					return err
+				}
+				// Remove .md extension
+				noteName := strings.TrimSuffix(relPath, ".md")
+				notes = append(notes, noteName)
+			}
+			return nil
+		})
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to list notes")
+			return
+		}
 
-	if _, err := os.Stat(notePath); os.IsNotExist(err) {
-		return fmt.Errorf("note '%s' not found", noteName)
-	}
+		// Sort notes alphabetically
+		sort.Strings(notes)
 
-	content, err := os.ReadFile(notePath)
-	if err != nil {
-		return fmt.Errorf("could not read note: %w", err)
-	}
-
-	// Get the directory containing the note for relative image paths
-	noteDir := filepath.Dir(notePath)
-
-	// Process markdown content
-	mdContent := string(content)
-
-	// Transform image paths
-	mdContent = transformImagePaths(mdContent, noteDir)
-
-	// Replace Mermaid code blocks with div elements
-	mdContent = strings.ReplaceAll(mdContent, "```mermaid", "<div class=\"mermaid\">")
-	mdContent = strings.ReplaceAll(mdContent, "```", "</div>")
-
-	htmlContent := markdown.ToHTML([]byte(mdContent), nil, nil)
-
-	// Add HTML wrapper with Mermaid support
-	finalHTML := []byte(`<!DOCTYPE html>
+		// Create welcome page HTML
+		welcomeHTML := `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
-    <script>
-        mermaid.initialize({ startOnLoad: true });
-    </script>
+    <title>Notes</title>
+    <style>
+        body {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+        }
+        h1 {
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+        a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-` + string(htmlContent) + `
+    <h1>Notes</h1>
+    <ul>
+`
+		for _, note := range notes {
+			welcomeHTML += fmt.Sprintf("        <li><a href=\"/notes/%s\">%s</a></li>\n", note, note)
+		}
+		welcomeHTML += `    </ul>
 </body>
-</html>`)
+</html>`
 
-	tmpDir := os.TempDir()                               // Get temp dir
-	tmpFile, err := os.CreateTemp(tmpDir, "note-*.html") // Create temp file in temp dir
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, welcomeHTML)
+	})
+
+	// Serve notes
+	r.GET("/notes/*path", func(c *gin.Context) {
+		path := c.Param("path")
+		notePath := filepath.Join(notesDir, path+".md")
+
+		content, err := os.ReadFile(notePath)
+		if err != nil {
+			c.String(http.StatusNotFound, "Note not found")
+			return
+		}
+
+		// Transform content
+		mdContent := transformImagePaths(string(content), notePath)
+
+		// Replace Mermaid code blocks
+		var inMermaid bool
+		lines := strings.Split(mdContent, "\n")
+		for i, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "```mermaid" {
+				lines[i] = "<div class=\"mermaid\">"
+				inMermaid = true
+			} else if inMermaid && trimmed == "```" {
+				lines[i] = "</div>"
+				inMermaid = false
+			}
+		}
+		mdContent = strings.Join(lines, "\n")
+
+		// Convert to HTML
+		htmlContent := markdown.ToHTML([]byte(mdContent), nil, nil)
+		finalHTML := fmt.Sprintf(htmlTemplate, string(htmlContent))
+
+		c.Header("Content-Type", "text/html")
+		c.String(http.StatusOK, finalHTML)
+	})
+
+	// Serve images from ._images_ directories under the /images path
+	r.GET("/images/*path", func(c *gin.Context) {
+		// Get the requested image path
+		imgPath := c.Param("path")
+		if imgPath == "" {
+			c.String(http.StatusNotFound, "Image not found")
+			return
+		}
+		// Remove leading slash
+		imgPath = strings.TrimPrefix(imgPath, "/")
+
+		// Split into directory and filename
+		dir, file := filepath.Split(imgPath)
+		dir = strings.TrimRight(dir, "/\\")
+
+		// Construct the physical path
+		var physicalPath string
+		if dir == "" {
+			// Root level image
+			physicalPath = filepath.Join(filepath.Dir(filepath.Join(notesDir, noteName+".md")), "._images_", file)
+		} else {
+			// Nested image
+			physicalPath = filepath.Join(notesDir, dir, "._images_", file)
+		}
+
+		// Check if file exists
+		if _, err := os.Stat(physicalPath); os.IsNotExist(err) {
+			c.String(http.StatusNotFound, "Image not found")
+			return
+		}
+
+		// Serve the file
+		c.File(physicalPath)
+	})
+
+	return r, nil
+}
+
+func openBrowser(url string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+	return cmd.Run()
+}
+
+func runView(cmd *cobra.Command, args []string) error {
+	var noteName string
+	if len(args) > 0 {
+		noteName = args[0]
+		// Check if note exists when a specific note is requested
+		notePath := filepath.Join(notesDir, noteName+".md")
+		if _, err := os.Stat(notePath); os.IsNotExist(err) {
+			return fmt.Errorf("note '%s' not found", noteName)
+		}
+	}
+
+	// Setup and start server
+	r, err := setupServer(noteName)
 	if err != nil {
-		return fmt.Errorf("could not create temp file: %w", err)
-	}
-
-	if _, err := tmpFile.Write(finalHTML); err != nil {
-		return fmt.Errorf("could not write HTML to temp file: %w", err)
-	}
-
-	if err := tmpFile.Close(); err != nil {
-		return fmt.Errorf("could not close temp file: %w", err)
+		return fmt.Errorf("failed to setup server: %w", err)
 	}
 
 	if !testMode {
-		var cmd *exec.Cmd
-		switch runtime.GOOS {
-		case "linux":
-			cmd = exec.Command("xdg-open", tmpFile.Name())
-		case "windows":
-			cmd = exec.Command("cmd", "/c", "start", tmpFile.Name())
-		case "darwin":
-			cmd = exec.Command("open", tmpFile.Name())
-		default:
-			return fmt.Errorf("unsupported platform")
+		// Start server in a goroutine
+		go func() {
+			if err := r.Run(":3000"); err != nil {
+				fmt.Printf("Server error: %v\n", err)
+			}
+		}()
+
+		// Open browser to either welcome page or specific note
+		url := "http://localhost:3000"
+		if noteName != "" {
+			url = fmt.Sprintf("http://localhost:3000/notes/%s", noteName)
 		}
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		if err := openBrowser(url); err != nil {
 			return fmt.Errorf("failed to open browser: %w", err)
 		}
-		fmt.Printf("Viewing note: %s in browser\n", noteName)
-		fmt.Print("Press Enter to continue...")
-		fmt.Scanln() // Wait for user to press Enter
-		defer os.Remove(tmpFile.Name())
+
+		fmt.Printf("Viewing note: %s\nPress Enter to stop the server...\n", noteName)
+		fmt.Scanln()
 	} else {
-		testFile = tmpFile.Name()
+		// In test mode, just return without starting the server
+		return nil
 	}
 
 	return nil

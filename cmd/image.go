@@ -11,6 +11,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// ConvertImagePath converts an internal image path with ._images_ to the standardized URL format
+// Example: "$root/folder1/._images_/xxx.png" -> "/images/folder1/xxx.png"
+func ConvertImagePath(path string) string {
+	// Split the path into components
+	parts := strings.Split(filepath.ToSlash(path), "/")
+
+	// Find the ._images_ directory index
+	imagesIdx := -1
+	for i, part := range parts {
+		if part == "._images_" {
+			imagesIdx = i
+			break
+		}
+	}
+
+	if imagesIdx == -1 {
+		return path // Return original path if no ._images_ found
+	}
+
+	// Get the folders before ._images_ (excluding root if it's there)
+	folders := parts[1:imagesIdx] // Skip root folder
+
+	// Get the image filename
+	filename := parts[len(parts)-1]
+
+	// Construct the new path
+	newPath := "/images"
+	if len(folders) > 0 {
+		newPath += "/" + strings.Join(folders, "/")
+	}
+	newPath += "/" + filename
+
+	return newPath
+}
+
 type EmptyError struct {
 	Message string
 }
