@@ -61,7 +61,6 @@ func runClip(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	fmt.Println("Clipping content to note...")
 	var content string
 	if apiKey, exists := config.Values["ANTHROPIC_API_KEY"]; exists && apiKey != "" {
 		// Download and clean the webpage content
@@ -87,7 +86,6 @@ func runClip(cmd *cobra.Command, args []string) error {
 		content = "# " + strings.TrimSuffix(noteName, ".md") + "\n"
 	}
 
-	fmt.Println(content)
 	// Append the URL at the end
 	content += "\n\nSource: [" + url + "](" + url + ")\n"
 

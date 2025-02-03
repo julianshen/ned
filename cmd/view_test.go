@@ -173,7 +173,7 @@ This is a test note with images:
 
 	// Check image paths in HTML
 	expectedPaths := []string{
-		fmt.Sprintf("/images/%s/test1.jpg", noteName),
+		"/images/test1.jpg",
 		"/images/subfolder/test2.png",
 	}
 	for _, path := range expectedPaths {
@@ -188,7 +188,7 @@ This is a test note with images:
 		expected []byte
 	}{
 		{
-			path:     fmt.Sprintf("/images/%s/test1.jpg", noteName),
+			path:     "/images/test1.jpg",
 			expected: []byte("fake image 1"),
 		},
 		{

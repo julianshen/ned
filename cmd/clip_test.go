@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,11 +20,34 @@ func TestClipCmd(t *testing.T) {
 		notesDir = originalNotesDir
 	}()
 
+	// Set up test server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		html := `
+<!DOCTYPE html>
+<html>
+<head><title>Test Page</title></head>
+<body>
+<article><p>Test content for clipping.</p></article>
+</body>
+</html>`
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(html))
+	}))
+	defer ts.Close()
+
 	// Create test config
-	config := &Config{
-		Values: map[string]string{},
+	config, err := loadConfig()
+	assert.NoError(t, err)
+
+	if config.Values["ANTHROPIC_API_KEY"] == "" {
+		t.Skip("Skipping test because ANTHROPIC_API_KEY is not set")
+		return
 	}
-	err := saveConfig(config)
+
+	// Save old config key
+	oldAPIKey := config.Values["ANTHROPIC_API_KEY"]
+	config.Values["ANTHROPIC_API_KEY"] = ""
+	err = saveConfig(config)
 	assert.NoError(t, err)
 
 	tests := []struct {
@@ -35,25 +60,25 @@ func TestClipCmd(t *testing.T) {
 	}{
 		{
 			name: "clip without API key",
-			args: []string{"test", "https://example.com"},
+			args: []string{"test", ts.URL},
 			validate: func(t *testing.T, notePath string) {
 				content, err := os.ReadFile(notePath)
 				assert.NoError(t, err)
 				assert.Contains(t, string(content), "# test\n")
-				assert.Contains(t, string(content), "Source: https://example.com")
+				assert.Contains(t, string(content), "Source: ["+ts.URL+"]("+ts.URL+")")
 			},
 		},
 		{
 			name: "clip with API key",
-			args: []string{"test2", "https://example.com"},
+			args: []string{"test2", ts.URL},
 			setup: func() error {
-				config.Values["ANTHROPIC_API_KEY"] = "test-key"
+				config.Values["ANTHROPIC_API_KEY"] = oldAPIKey
 				return saveConfig(config)
 			},
 			validate: func(t *testing.T, notePath string) {
 				content, err := os.ReadFile(notePath)
 				assert.NoError(t, err)
-				assert.Contains(t, string(content), "Source: https://example.com")
+				assert.Contains(t, string(content), "Source: ["+ts.URL+"]("+ts.URL+")")
 			},
 		},
 		{
@@ -64,9 +89,14 @@ func TestClipCmd(t *testing.T) {
 		},
 		{
 			name:    "too many arguments",
-			args:    []string{"test", "https://example.com", "extra"},
+			args:    []string{"test", ts.URL, "extra"},
 			wantErr: true,
 			errMsg:  "accepts 2 arg(s)",
+		},
+		{
+			name:    "invalid URL",
+			args:    []string{"test", "http://invalid.url"},
+			wantErr: true,
 		},
 	}
 

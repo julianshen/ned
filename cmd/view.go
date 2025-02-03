@@ -76,12 +76,14 @@ func transformImagePaths(content string, notePath string) string {
 		alt := parts[1]
 		imgPath := parts[2]
 
-		// Convert image path to standardized URL path
-		if strings.Contains(imgPath, "/") || strings.Contains(imgPath, "\\") {
-			// If path contains folders, keep the structure
+		// Convert backslashes to forward slashes
+		imgPath = strings.ReplaceAll(imgPath, "\\", "/")
+
+		// If path contains folders, keep the structure
+		if strings.Contains(imgPath, "/") {
 			dir, file := filepath.Split(imgPath)
-			// Remove trailing slash and clean the directory path
-			dir = strings.TrimRight(dir, "/\\")
+			// Remove trailing slash and convert to URL path
+			dir = strings.TrimRight(dir, "/")
 			if dir == "" {
 				return fmt.Sprintf("![%s](/images/%s)", alt, file)
 			}
@@ -89,13 +91,15 @@ func transformImagePaths(content string, notePath string) string {
 		}
 
 		// For simple filenames, use the note's parent folder
-		noteDir := filepath.Dir(notePath)
+		noteFolder := filepath.Dir(notePath)
 		// Get relative path from notes directory
-		relNoteDir, err := filepath.Rel(notesDir, noteDir)
-		if err != nil || relNoteDir == "." {
+		relNoteFolder, err := filepath.Rel(notesDir, noteFolder)
+		if err != nil || relNoteFolder == "." {
 			return fmt.Sprintf("![%s](/images/%s)", alt, imgPath)
 		}
-		return fmt.Sprintf("![%s](/images/%s/%s)", alt, relNoteDir, imgPath)
+		// Convert backslashes to forward slashes for URL path
+		relNoteFolder = strings.ReplaceAll(relNoteFolder, "\\", "/")
+		return fmt.Sprintf("![%s](/images/%s/%s)", alt, relNoteFolder, imgPath)
 	})
 }
 
@@ -118,8 +122,8 @@ func setupServer(noteName string) (*gin.Engine, error) {
 				if err != nil {
 					return err
 				}
-				// Remove .md extension
-				noteName := strings.TrimSuffix(relPath, ".md")
+				// Remove .md extension and convert backslashes to forward slashes
+				noteName := strings.ReplaceAll(strings.TrimSuffix(relPath, ".md"), "\\", "/")
 				notes = append(notes, noteName)
 			}
 			return nil
@@ -187,6 +191,8 @@ func setupServer(noteName string) (*gin.Engine, error) {
 	// Serve notes
 	r.GET("/notes/*path", func(c *gin.Context) {
 		path := c.Param("path")
+		// Convert backslashes to forward slashes
+		path = strings.ReplaceAll(path, "\\", "/")
 		notePath := filepath.Join(notesDir, path+".md")
 
 		content, err := os.ReadFile(notePath)
@@ -233,20 +239,30 @@ func setupServer(noteName string) (*gin.Engine, error) {
 			c.String(http.StatusNotFound, "Image not found")
 			return
 		}
-		// Remove leading slash
-		imgPath = strings.TrimPrefix(imgPath, "/")
+		// Remove leading slash and convert backslashes to forward slashes
+		imgPath = strings.ReplaceAll(strings.TrimPrefix(imgPath, "/"), "\\", "/")
 
 		// Split into directory and filename
 		dir, file := filepath.Split(imgPath)
-		dir = strings.TrimRight(dir, "/\\")
+		// Remove trailing slash
+		dir = strings.TrimRight(dir, "/")
 
 		// Construct the physical path
 		var physicalPath string
 		if dir == "" {
-			// Root level image
-			physicalPath = filepath.Join(filepath.Dir(filepath.Join(notesDir, noteName+".md")), "._images_", file)
+			// Root level image - if viewing a note, look in its directory first
+			if noteName != "" {
+				noteFolder := filepath.Dir(filepath.Join(notesDir, noteName+".md"))
+				physicalPath = filepath.Join(noteFolder, "._images_", file)
+				if _, err := os.Stat(physicalPath); err == nil {
+					c.File(physicalPath)
+					return
+				}
+			}
+			// Fall back to the root images directory
+			physicalPath = filepath.Join(notesDir, "._images_", file)
 		} else {
-			// Nested image
+			// Search for image in the specified directory
 			physicalPath = filepath.Join(notesDir, dir, "._images_", file)
 		}
 
@@ -280,6 +296,8 @@ func runView(cmd *cobra.Command, args []string) error {
 	var noteName string
 	if len(args) > 0 {
 		noteName = args[0]
+		// Convert backslashes to forward slashes
+		noteName = strings.ReplaceAll(noteName, "\\", "/")
 		// Check if note exists when a specific note is requested
 		notePath := filepath.Join(notesDir, noteName+".md")
 		if _, err := os.Stat(notePath); os.IsNotExist(err) {

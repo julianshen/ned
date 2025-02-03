@@ -13,15 +13,6 @@ import (
 )
 
 func TestConfigSetCmd(t *testing.T) {
-	// Clean up any existing test key before running tests
-	config, err := loadConfig()
-	assert.NoError(t, err)
-	if config.Values != nil {
-		delete(config.Values, "test_key")
-		err = saveConfig(config)
-		assert.NoError(t, err)
-	}
-
 	tests := []struct {
 		name     string
 		args     []string
@@ -75,6 +66,14 @@ func TestConfigSetCmd(t *testing.T) {
 }
 
 func TestConfigShowCmd(t *testing.T) {
+	// Create a temporary test config file before each test
+	oldConfig, err := loadConfig()
+	assert.NoError(t, err)
+	tmpConfig := &Config{}
+	err = saveConfig(tmpConfig)
+	assert.NoError(t, err)
+	defer saveConfig(oldConfig)
+
 	tests := []struct {
 		name     string
 		setup    func() error
@@ -147,6 +146,14 @@ func TestConfigShowCmd(t *testing.T) {
 }
 
 func TestConfigHelpers(t *testing.T) {
+	// Create a temporary test config file before each test
+	oldConfig, err := loadConfig()
+	assert.NoError(t, err)
+	tmpConfig := &Config{}
+	err = saveConfig(tmpConfig)
+	assert.NoError(t, err)
+	defer saveConfig(oldConfig)
+
 	// Test config path creation
 	configPath, err := getConfigPath()
 	assert.NoError(t, err)
