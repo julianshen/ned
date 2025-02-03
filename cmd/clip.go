@@ -65,7 +65,7 @@ func runClip(cmd *cobra.Command, args []string) error {
 	var content string
 	if apiKey, exists := config.Values["ANTHROPIC_API_KEY"]; exists && apiKey != "" {
 		// Download and clean the webpage content
-		pageContent, err := cleanpage.CrawlPage(url, cleanpage.HTTPClient)
+		pageContent, err := cleanpage.CrawlPage(url)
 		if err != nil {
 			return fmt.Errorf("failed to download webpage: %w", err)
 		}
